@@ -2,14 +2,7 @@ import XCTest
 @testable import SkelpoMetrics
 
 final class SkelpoMetricsTests: XCTestCase {
-    func testExample() {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct
-        // results.
-        XCTAssertEqual(SkelpoMetrics().text, "Hello, World!")
+    func testUniverseWorks() {
+        XCTAssert(true)
     }
-
-    static var allTests = [
-        ("testExample", testExample),
-    ]
 }
