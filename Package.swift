@@ -12,6 +12,7 @@ let package = Package(
     ],
     targets: [
         .target(name: "SkelpoMetrics", dependencies: ["Metrics"]),
+        .target(name: "VaporSkelpoMetrics", dependencies: ["SkelpoMetrics"]),
         .testTarget(name: "SkelpoMetricsTests", dependencies: ["SkelpoMetrics"]),
     ]
 )
