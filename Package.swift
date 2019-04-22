@@ -11,7 +11,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-metrics", .branch("master"))
     ],
     targets: [
-        .target(name: "SkelpoMetrics", dependencies: []),
+        .target(name: "SkelpoMetrics", dependencies: ["Metrics"]),
         .testTarget(name: "SkelpoMetricsTests", dependencies: ["SkelpoMetrics"]),
     ]
 )
