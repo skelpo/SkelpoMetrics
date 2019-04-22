@@ -7,7 +7,9 @@ let package = Package(
     products: [
         .library(name: "SkelpoMetrics", targets: ["SkelpoMetrics"]),
     ],
-    dependencies: [],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-metrics", .branch("master"))
+    ],
     targets: [
         .target(name: "SkelpoMetrics", dependencies: []),
         .testTarget(name: "SkelpoMetricsTests", dependencies: ["SkelpoMetrics"]),
