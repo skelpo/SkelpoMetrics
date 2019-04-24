@@ -11,7 +11,7 @@ internal struct Client {
         _ complete: @escaping (Result<Void, Swift.Error>) -> ()
     ) where Body: Codable {
         guard let url = URL(string: string) else {
-            return complete(.failure(Error(identifier: "badURL", reason: "Unable to creat URL from string `\(string)`")))
+            return complete(.failure(Error(identifier: "badURL", reason: "Unable to create URL from string `\(string)`")))
         }
 
         var request = URLRequest(url: url)
