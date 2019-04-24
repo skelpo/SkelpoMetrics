@@ -15,8 +15,8 @@
         "repositoryURL": "https://github.com/vapor/core.git",
         "state": {
           "branch": null,
-          "revision": "57368d4092f92df3131e5968c8ed24a3c7361ec0",
-          "version": "3.8.1"
+          "revision": "2731f8ba0cf274a61c9bd6ab43550f692ffaf879",
+          "version": "3.9.0"
         }
       },
       {
@@ -24,8 +24,8 @@
         "repositoryURL": "https://github.com/vapor/crypto.git",
         "state": {
           "branch": null,
-          "revision": "45bb12d13cdec80dbd1cc0685ea002e51ab83439",
-          "version": "3.3.2"
+          "revision": "df8eb7d8ae51787b3a0628aa3975e67666da936c",
+          "version": "3.3.3"
         }
       },
       {
@@ -77,9 +77,9 @@
         "package": "swift-metrics",
         "repositoryURL": "https://github.com/apple/swift-metrics",
         "state": {
-          "branch": "master",
-          "revision": "d9f63df00c94f36e298360df483bbd962b1c76e1",
-          "version": null
+          "branch": null,
+          "revision": "b017e02759f9de9d71f6f22f37f488525f4f178a",
+          "version": "1.0.0-convergence.1"
         }
       },
       {

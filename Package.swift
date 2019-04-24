@@ -9,7 +9,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/vapor/vapor.git", from: "3.3.0"),
-        .package(url: "https://github.com/apple/swift-metrics", .branch("master"))
+        .package(url: "https://github.com/apple/swift-metrics", from: "1.0.0-convergence.1")
     ],
     targets: [
         .target(name: "SkelpoMetrics", dependencies: ["Metrics"]),
