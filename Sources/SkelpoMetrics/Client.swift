@@ -6,6 +6,7 @@ internal struct Client {
     func send<Body>(
         _ method: String,
         url string: String,
+        headers: [String: String],
         body: Body,
         _ complete: @escaping (Result<Void, Swift.Error>) -> ()
     ) where Body: Codable {
@@ -15,7 +16,10 @@ internal struct Client {
 
         var request = URLRequest(url: url)
         request.httpMethod = method
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        headers.forEach { header in
+            request.addValue(header.value, forHTTPHeaderField: header.key)
+        }
 
         do {
             request.httpBody = try JSONEncoder().encode(body)

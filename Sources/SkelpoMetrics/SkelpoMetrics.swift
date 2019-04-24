@@ -49,23 +49,30 @@ public struct SkelpoMetric {
     }
 
     public func record(_ guage: SkelpoMetricFactory.Guage, _ closure: @escaping (Result<Void, Swift.Error>) -> ()) {
-        let body = Event(metric: .guage(value: guage.value))
-        self.client.send("POST", url: self.config.url + "/events", body: body, closure)
+        self.record(.guage(value: guage.value), closure)
     }
 
     public func record(_ timer: SkelpoMetricFactory.Timer, _ closure: @escaping (Result<Void, Swift.Error>) -> ()) {
-        let body = Event(metric: .timer(durations: timer.durations))
-        self.client.send("POST", url: self.config.url + "/events", body: body, closure)
+        self.record(.timer(durations: timer.durations), closure)
     }
 
     public func record(_ counter: SkelpoMetricFactory.Counter, _ closure: @escaping (Result<Void, Swift.Error>) -> ()) {
-        let body = Event(metric: .counter(value: counter.value))
-        self.client.send("POST", url: self.config.url + "/events", body: body, closure)
+        self.record(.counter(value: counter.value), closure)
     }
 
     public func record(_ recorder: SkelpoMetricFactory.Recorder, _ closure: @escaping (Result<Void, Swift.Error>) -> ()) {
-        let body = Event(metric: .recorder(values: recorder.value))
-        self.client.send("POST", url: self.config.url + "/events", body: body, closure)
+        self.record(.recorder(values: recorder.value), closure)
+    }
+
+    private func record(_ metric: Metric, _ closure: @escaping (Result<Void, Swift.Error>) -> ()) {
+        let body = Event(metric: metric)
+        self.client.send(
+            "POST",
+            url: self.config.url + "/events",
+            headers: ["Content-Type": "application/json", "Authorization": self.config.key],
+            body: body,
+            closure
+        )
     }
 }
 
