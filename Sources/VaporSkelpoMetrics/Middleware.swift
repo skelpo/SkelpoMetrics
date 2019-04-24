@@ -9,12 +9,11 @@ public final class SkelpoMetricsMiddleware: Middleware {
         let logger = try request.make(Logger.self)
         let client = try request.make(Client.self)
 
-        var event = Event(date: Date(), type: "request", quantity: 1, attributes: [:])
-
+        var event = Event(type: "request")
         return try next.respond(to: request).flatMap { response in
             event.attributes["status"] = response.http.status.code.description
             event.attributes["endpoint"] = request.http.urlString
-            event.attributes["interval"] = String(describing: Date().timeIntervalSince1970 - event.date.timeIntervalSince1970)
+            event.metric = .timer(durations: [Int64(Date().timeIntervalSince1970 - event.date.timeIntervalSince1970)])
 
             let body: Data
             do { body = try JSONEncoder().encode(event) }
@@ -30,11 +29,4 @@ public final class SkelpoMetricsMiddleware: Middleware {
             }
         }
     }
-}
-
-internal struct Event: Content {
-    var date: Date
-    var type: String
-    var quantity: Int
-    var attributes: [String: String]
 }
