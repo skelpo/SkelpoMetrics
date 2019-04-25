@@ -6,9 +6,8 @@ import Vapor
 /// For this middleware to work, you will need to register `SwiftMetrics.Config` as
 /// a service with your app's `Services` instance.
 ///
-/// This middleware can be register either as a single instance, or an instance per event-loop:
+/// This middleware must be registered per container to your app's `Services` instance:
 ///
-///     services.register(SkelpoMetricsMiddleware())
 ///     services.register(SkelpoMetricsMiddleware.self)
 public final class SkelpoMetricsMiddleware: Middleware, ServiceType {
 
