@@ -74,6 +74,15 @@
         }
       },
       {
+        "package": "swift-log",
+        "repositoryURL": "https://github.com/apple/swift-log.git",
+        "state": {
+          "branch": null,
+          "revision": "a64dd7dafc06bcecc43ec4dff0d71ef797247456",
+          "version": "1.0.0"
+        }
+      },
+      {
         "package": "swift-metrics",
         "repositoryURL": "https://github.com/apple/swift-metrics",
         "state": {
