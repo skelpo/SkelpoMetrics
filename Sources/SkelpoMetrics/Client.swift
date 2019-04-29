@@ -3,11 +3,20 @@ import Foundation
 internal struct Client {
     let session: URLSession = URLSession(configuration: .default)
 
+    func send(
+        _ method: String,
+        url string: String,
+        headers: [String: String],
+        _ complete: @escaping (Result<Void, Swift.Error>) -> ()
+    ) {
+        self.send(method, url: string, headers: headers, body: Optional<[String: String]>.none, complete)
+    }
+
     func send<Body>(
         _ method: String,
         url string: String,
         headers: [String: String],
-        body: Body,
+        body: Body?,
         _ complete: @escaping (Result<Void, Swift.Error>) -> ()
     ) where Body: Codable {
         guard let url = URL(string: string) else {
@@ -22,7 +31,7 @@ internal struct Client {
         }
 
         do {
-            request.httpBody = try JSONEncoder().encode(body)
+            request.httpBody = try body.map(JSONEncoder().encode)
         } catch let error {
             return complete(.failure(error))
         }
