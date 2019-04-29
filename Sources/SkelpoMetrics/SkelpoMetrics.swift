@@ -62,173 +62,292 @@ public struct Config {
     }
 }
 
-/// Stores metric data to the configured API.
-public final class SkelpoMetric {
+/// The `MetricFactory` instance that should be registered to store metric information
+/// to a `skelpo/metric` API instance.
+public struct SkelpoMetric: MetricsFactory {
 
-    /// The `Config` instance with the API root and API key to use when storing the metric data.
+    /// The configuration for the metric factory with the URL for the API at
+    /// which to store the metric and the key for the API.
     public let config: Config
-
-    private let client: Client
 
     /// Creates a new `SkelpoMetric` instance.
     ///
-    /// - Parameter config: The `Config` instance with the API root and API key to use when storing the metric data.
+    /// - Parameter config: The configuration for the metric factory.
     public init(config: Config) {
         self.config = config
-        self.client = Client()
     }
-
-    /// Stores an `Event` object in the configured API, using the value of the guage passed in as the metric.
-    ///
-    /// - Parameters:
-    ///   - guage: The guage whos value will be used in the metric that will be stored.
-    ///   - closure: The closure that will be called when the metric storage completes.
-    public func record(_ guage: SkelpoMetricFactory.Guage, _ closure: @escaping (Result<Void, Swift.Error>) -> ()) {
-        self.record(.guage(value: guage.value), closure)
-    }
-
-    /// Stores an `Event` object in the configured API, using the durations of the timer passed in as the metric.
-    ///
-    /// - Parameters:
-    ///   - guage: The timer whos durations will be used in the metric that will be stored.
-    ///   - closure: The closure that will be called when the metric storage completes.
-    public func record(_ timer: SkelpoMetricFactory.Timer, _ closure: @escaping (Result<Void, Swift.Error>) -> ()) {
-        self.record(.timer(durations: timer.durations), closure)
-    }
-
-    /// Stores an `Event` object in the configured API, using the value of the counter passed in as the metric.
-    ///
-    /// - Parameters:
-    ///   - guage: The counter whos value will be used in the metric that will be stored.
-    ///   - closure: The closure that will be called when the metric storage completes.
-    public func record(_ counter: SkelpoMetricFactory.Counter, _ closure: @escaping (Result<Void, Swift.Error>) -> ()) {
-        self.record(.counter(value: counter.value), closure)
-    }
-
-    /// Stores an `Event` object in the configured API, using the values of the recorder passed in as the metric.
-    ///
-    /// - Parameters:
-    ///   - guage: The recorder whos values will be used in the metric that will be stored.
-    ///   - closure: The closure that will be called when the metric storage completes.
-    public func record(_ recorder: SkelpoMetricFactory.Recorder, _ closure: @escaping (Result<Void, Swift.Error>) -> ()) {
-        self.record(.recorder(values: recorder.value), closure)
-    }
-
-    private func record(_ metric: Metric, _ closure: @escaping (Result<Void, Swift.Error>) -> ()) {
-        let body = Event(metric: metric)
-        self.client.send(
-            "POST",
-            url: self.config.url + "/events",
-            headers: ["Content-Type": "application/json", "Authorization": self.config.key],
-            body: body,
-            closure
-        )
-    }
-}
-
-/// The `MetricFactory` instance that should be registered
-public struct SkelpoMetricFactory: MetricsFactory {
 
     /// See `MetricsFactory.makeCounter(label:dimensions:)`.
     public func makeCounter(label: String, dimensions: [(String, String)]) -> CounterHandler {
-        return Counter(label: label)
+        return Counter(label: label, config: self.config)
     }
 
     /// See `MetricsFactory.makeRecorder(label:dimensions:aggregate:)`.
     public func makeRecorder(label: String, dimensions: [(String, String)], aggregate: Bool) -> RecorderHandler {
-        return aggregate ? Recorder(label: label) : Guage(label: label)
+        return aggregate ? Recorder(label: label, config: self.config) : Guage(label: label, config: self.config)
     }
 
     /// See `MetricsFactory.makeTimer(label:dimensions:)`.
     public func makeTimer(label: String, dimensions: [(String, String)]) -> TimerHandler {
-        return Timer(label: label)
+        return Timer(label: label, config: self.config)
     }
 
     /// See `MetricsFactory.destroyCounter(_:)`.
-    public func destroyCounter(_ handler: CounterHandler) { }
+    public func destroyCounter(_ handler: CounterHandler) {
+        if let counter = handler as? Counter { counter.lock() }
+    }
 
     /// See `MetricsFactory.destroyRecorder(_:)`.
-    public func destroyRecorder(_ handler: RecorderHandler) { }
+    public func destroyRecorder(_ handler: RecorderHandler) {
+        if let recorder = handler as? Recorder {
+            recorder.lock()
+        } else if let guage = handler as? Guage {
+            guage.lock()
+        }
+    }
 
     /// See `MetricsFactory.destroyTimer(_:)`.
-    public func destroyTimer(_ handler: TimerHandler) { }
+    public func destroyTimer(_ handler: TimerHandler) {
+        if let timer = handler as? Timer { timer.lock() }
+    }
 
     /// A `CounterHandler` that tracks a value that can be stored as a metric by `SwiftMetrics`.
     public final class Counter: CounterHandler {
-        let label: String
-        private(set) var value: Int64
+        private let state: MetricState
 
-        init(label: String) {
-            self.label = label
-            self.value = 0
+        init(label: String, config: Config) {
+            self.state = MetricState(label: label, config: config)
         }
 
         /// See `CounterHandler.increment(by:)`.
         public func increment(by increment: Int64) {
-            self.value += increment
+            let operation: MetricState.Operation = { complete in
+                if let event = self.state.event {
+                    self.state.client.send(
+                        "PATCH",
+                        url: self.state.config.url + "/events/\(event)/increment?by=\(increment)",
+                        headers: ["Authorization": self.state.config.key, "Content-Type": "application/json"],
+                        complete
+                    )
+                } else {
+                    self.state.config.createEvent(metric: .counter(value: increment), on: self.state.client, complete)
+                }
+            }
+            self.state.run(operation: operation)
         }
 
         /// See `CounterHandler.reset()`.
         public func reset() {
-            self.value = 0
+            let operation: MetricState.Operation = { complete in
+                if let event = self.state.event {
+                    self.state.client.send(
+                        "PATCH",
+                        url: self.state.config.url + "/events/\(event)/reset",
+                        headers: ["Authorization": self.state.config.key, "Content-Type": "application/json"],
+                        complete
+                    )
+                } else {
+                    self.state.config.createEvent(metric: .counter(value: 0), on: self.state.client, complete)
+                }
+            }
+            self.state.run(operation: operation)
+        }
+
+        /// Locks the metric's event to stop mutations. so it can be aggregated.
+        public func lock() {
+            self.state.lock()
         }
     }
 
     /// A `RecorderHandler` that records aggregate values that can be stored as a metric by `SwiftMetrics`.
     public final class Recorder: RecorderHandler {
-        let label: String
-        private(set) var value: [Double]
+        private let state: MetricState
 
-        init(label: String) {
-            self.label = label
-            self.value = []
+        init(label: String, config: Config) {
+            self.state = MetricState(label: label, config: config)
         }
 
         /// See `RecorderHandler.record(_:)`.
         public func record(_ value: Int64) {
-            self.value.append(Double(value))
+            self.record(Double(value))
         }
 
         /// See `RecorderHandler.record(_:)`
         public func record(_ value: Double) {
-            self.value.append(value)
+            let operation: MetricState.Operation = { complete in
+                if let event = self.state.event {
+                    self.record(value: value, on: event, complete)
+                } else {
+                    self.state.config.createEvent(metric: .recorder(values: [value]), on: self.state.client, complete)
+                }
+            }
+            self.state.run(operation: operation)
+        }
+
+        /// Locks the metric's event to stop mutations. so it can be aggregated.
+        public func lock() {
+            self.state.lock()
+        }
+
+        private func record(value: Double, on event: Int, _ callback: @escaping (Result<Void, Swift.Error>) -> ()) {
+            self.state.client.send(
+                "PATCH",
+                url: self.state.config.url + "/events/\(event)/record/\(value)",
+                headers: ["Authorization": self.state.config.key, "Content-Type": "application/json"],
+                callback
+            )
         }
     }
 
     /// A `RecorderHandler` that records a single value that can be stored as a metric by `SwiftMetrics`.
     public final class Guage: RecorderHandler {
-        let label: String
-        private(set) var value: Double
+        private let state: MetricState
 
-        init(label: String) {
-            self.label = label
-            self.value = 0
+        init(label: String, config: Config) {
+            self.state = MetricState(label: label, config: config)
         }
 
         /// See `RecorderHandler.record(_:)`.
         public func record(_ value: Int64) {
-            self.value = Double(value)
+            self.record(Double(value))
         }
 
         /// See `RecorderHandler.record(_:)`.
         public func record(_ value: Double) {
-            self.value = value
+            let operation: MetricState.Operation = { complete in
+                if let event = self.state.event {
+                    self.record(value: value, on: event, complete)
+                } else {
+                    self.state.config.createEvent(metric: .guage(value: value), on: self.state.client, complete)
+                }
+            }
+            self.state.run(operation: operation)
+        }
+
+        /// Locks the metric's event to stop mutations. so it can be aggregated.
+        public func lock() {
+            self.state.lock()
+        }
+
+        private func record(value: Double, on event: Int, _ callback: @escaping (Result<Void, Swift.Error>) -> ()) {
+            self.state.client.send(
+                "PATCH",
+                url: self.state.config.url + "/events/\(event)/record/\(value)",
+                headers: ["Authorization": self.state.config.key, "Content-Type": "application/json"],
+                callback
+            )
         }
     }
 
     /// A `TimerHandler` that records a list of durations that can be stored as a metric by `SwiftMetrics`.
     public final class Timer: TimerHandler {
-        let label: String
-        private(set) var durations: [Int64]
+        private let state: MetricState
 
-        init(label: String) {
-            self.label = label
-            self.durations = []
+        init(label: String, config: Config) {
+            self.state = MetricState(label: label, config: config)
         }
 
         /// See `TimerHandler.recordNanoseconds(_:)`.
         public func recordNanoseconds(_ duration: Int64) {
-            self.durations.append(duration)
+            let operation: MetricState.Operation = { complete in
+                if let event = self.state.event {
+                    self.record(duration: duration, on: event, complete)
+                } else {
+                    self.state.config.createEvent(metric: .timer(durations: [duration]), on: self.state.client, complete)
+                }
+            }
+            self.state.run(operation: operation)
         }
+
+        /// Locks the metric's event to stop mutations. so it can be aggregated.
+        public func lock() {
+            self.state.lock()
+        }
+
+        private func record(duration: Int64, on event: Int, _ callback: @escaping (Result<Void, Swift.Error>) -> ()) {
+            self.state.client.send(
+                "PATCH",
+                url: self.state.config.url + "/events/\(event)/record/\(duration)",
+                headers: ["Authorization": self.state.config.key, "Content-Type": "application/json"],
+                callback
+            )
+        }
+    }
+
+    private final class MetricState {
+        typealias Operation = (@escaping (Result<Void, Swift.Error>) -> ()) -> ()
+
+        let label: String
+        let config: Config
+
+        var running: Bool
+        let client: Client
+        var event: Int?
+        var queue: [Operation]
+
+        init(label: String, config: Config) {
+            self.label = label
+            self.config = config
+
+            self.running = false
+            self.client = Client()
+            self.event = nil
+            self.queue = []
+        }
+
+        func run(operation: @escaping Operation) {
+            self.queue.append(operation)
+            if !self.running {
+                self.running = true
+                self._run()
+            }
+        }
+
+        private func _run() {
+            guard self.queue.count > 0 else { return (self.running = false) }
+            let operation = self.queue.removeFirst()
+
+            return operation { result in
+                if case let .failure(error) = result {
+                    print(error)
+                }
+
+                self._run()
+            }
+        }
+
+        func lock() {
+            let operation: MetricState.Operation = { complete in
+                guard let event = self.event else {
+                    let error = Error(
+                        identifier: "noEvent",
+                        reason: "The current metric doesn't have a connected event, so it can't be locked."
+                    )
+                    return complete(.failure(error))
+                }
+
+                self.client.send(
+                    "PATCH",
+                    url: self.config.url + "/events/\(event)/lock",
+                    headers: ["Authorization": self.config.key, "Content-Type": "application/json"],
+                    complete
+                )
+            }
+
+            self.queue.append(operation)
+        }
+    }
+}
+
+extension Config {
+    internal func createEvent(metric: Metric, on client: Client, _ complete: @escaping (Result<Void, Swift.Error>) -> ()) {
+        let body = Event(metric: metric)
+        client.send(
+            "POST",
+            url: self.url + "/events",
+            headers: ["Content-Type": "application/json", "Authorization": self.key],
+            body: body,
+            complete
+        )
     }
 }
