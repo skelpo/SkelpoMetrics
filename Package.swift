@@ -6,6 +6,7 @@ let package = Package(
     name: "SkelpoMetrics",
     products: [
         .library(name: "SkelpoMetrics", targets: ["SkelpoMetrics"]),
+        .library(name: "VaporSkelpoMetrics", targets: ["VaporSkelpoMetrics", "SkelpoMetrics"])
     ],
     dependencies: [
         .package(url: "https://github.com/vapor/vapor.git", from: "3.3.0"),
