@@ -12,6 +12,9 @@ public struct Event: Codable {
     /// The date that the event occured at.
     public var date: Date = Date()
 
+    /// Whether the metric data for the event will be mutable or not.
+    public var locked: Bool = false
+
     /// The metric that is connected to the given event.
     public var metric: Metric?
 
