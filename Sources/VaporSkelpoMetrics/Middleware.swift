@@ -13,14 +13,21 @@ public final class SkelpoMetricsMiddleware: Middleware, ServiceType {
 
     /// See `ServiceType.makeService(for:)`.
     public static func makeService(for container: Container) throws -> SkelpoMetricsMiddleware {
-        return try SkelpoMetricsMiddleware(config: container.make(), logger: container.make(), client: container.make())
+        return try SkelpoMetricsMiddleware(
+            encoder: try? container.make(ContentCoders.self).requireDataEncoder(for: .json),
+            config: container.make(),
+            logger: container.make(),
+            client: container.make()
+        )
     }
 
     private let config: SkelpoMetrics.Config
+    private let encoder: DataEncoder
     private let logger: Logger
     private let client: Client
 
-    private init(config: SkelpoMetrics.Config, logger: Logger, client: Client) {
+    private init(encoder: DataEncoder?, config: SkelpoMetrics.Config, logger: Logger, client: Client) {
+        self.encoder = encoder ?? JSONEncoder()
         self.config = config
         self.logger = logger
         self.client = client
@@ -29,13 +36,15 @@ public final class SkelpoMetricsMiddleware: Middleware, ServiceType {
     /// See `Middleware.respond(to:chainingTo:)`.
     public func respond(to request: Request, chainingTo next: Responder) throws -> EventLoopFuture<Response> {
         var event = Event(type: "request")
+        event.locked = true
+
         return try next.respond(to: request).flatMap { response in
             event.attributes["status"] = response.http.status.code.description
             event.attributes["endpoint"] = request.http.urlString
             event.metric = .timer(durations: [Int64(Date().timeIntervalSince1970 - event.date.timeIntervalSince1970)])
 
             let body: Data
-            do { body = try JSONEncoder().encode(event) }
+            do { body = try self.encoder.encode(event) }
             catch let error {
                 self.logger.error("Metric event failed to save with error: \(error.localizedDescription)")
                 return request.future(response)
