@@ -62,8 +62,21 @@ public final class SkelpoMetricsMiddleware: Middleware, ServiceType {
                 return request.future(response)
             }
 
-            let http = HTTPRequest(method: .POST, url: self.config.url, headers: ["Authorization": self.config.key], body: body)
-            return self.client.send(Request(http: http, using: request)).transform(to: response).catchMap { error in
+            let http = HTTPRequest(
+                method: .POST,
+                url: self.config.url,
+                headers: ["Authorization": self.config.key, "Content-Type": "application/json"],
+                body: body
+            )
+
+            return self.client.send(Request(http: http, using: request)).map { event in
+                guard (200..<300).contains(event.http.status.code) else {
+                    self.logger.error("Got a \(event.http.status.code) response when creating `Event` model.")
+                    return response
+                }
+
+                return response
+            }.catchMap { error in
                 self.logger.error("Metric event failed to save with error: \(error.localizedDescription)")
                 return response
             }

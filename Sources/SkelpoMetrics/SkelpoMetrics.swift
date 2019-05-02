@@ -32,7 +32,9 @@ public struct Config {
     /// value will be read from in the `Config.init(url:)` initializer.
     public static var keyVariable: String = "SKELPO_METRICS_KEY"
 
-    /// The root URL for the API to save the metrics to.
+    /// The host and resource for the API to save the metrics to.
+    ///
+    /// I.e. `https://metrics.skelpo.com/api/v1/events`.
     public let url: String
 
     /// The key for the API that the metrics will be saved to.
@@ -41,7 +43,7 @@ public struct Config {
     /// Creates a new `Config` instance.
     ///
     /// - Parameters:
-    ///   - url: The root URL for the API to save the metrics to.
+    ///   - url: The host and resource for the API to save the metrics to.
     ///   - key: The key for the API that the metrics will be saved to.
     public init(url: String, key: String) {
         self.url = url
@@ -125,7 +127,7 @@ public struct SkelpoMetric: MetricsFactory {
                 if let event = self.state.event {
                     self.state.client.send(
                         "PATCH",
-                        url: self.state.config.url + "/events/\(event)/increment?by=\(increment)",
+                        url: self.state.config.url + "/\(event)/increment?by=\(increment)",
                         headers: ["Authorization": self.state.config.key, "Content-Type": "application/json"],
                         complete
                     )
@@ -142,7 +144,7 @@ public struct SkelpoMetric: MetricsFactory {
                 if let event = self.state.event {
                     self.state.client.send(
                         "PATCH",
-                        url: self.state.config.url + "/events/\(event)/reset",
+                        url: self.state.config.url + "/\(event)/reset",
                         headers: ["Authorization": self.state.config.key, "Content-Type": "application/json"],
                         complete
                     )
@@ -192,7 +194,7 @@ public struct SkelpoMetric: MetricsFactory {
         private func record(value: Double, on event: Int, _ callback: @escaping (Result<Void, Swift.Error>) -> ()) {
             self.state.client.send(
                 "PATCH",
-                url: self.state.config.url + "/events/\(event)/record/\(value)",
+                url: self.state.config.url + "/\(event)/record/\(value)",
                 headers: ["Authorization": self.state.config.key, "Content-Type": "application/json"],
                 callback
             )
@@ -232,7 +234,7 @@ public struct SkelpoMetric: MetricsFactory {
         private func record(value: Double, on event: Int, _ callback: @escaping (Result<Void, Swift.Error>) -> ()) {
             self.state.client.send(
                 "PATCH",
-                url: self.state.config.url + "/events/\(event)/record/\(value)",
+                url: self.state.config.url + "/\(event)/record/\(value)",
                 headers: ["Authorization": self.state.config.key, "Content-Type": "application/json"],
                 callback
             )
@@ -267,7 +269,7 @@ public struct SkelpoMetric: MetricsFactory {
         private func record(duration: Int64, on event: Int, _ callback: @escaping (Result<Void, Swift.Error>) -> ()) {
             self.state.client.send(
                 "PATCH",
-                url: self.state.config.url + "/events/\(event)/record/\(duration)",
+                url: self.state.config.url + "/\(event)/record/\(duration)",
                 headers: ["Authorization": self.state.config.key, "Content-Type": "application/json"],
                 callback
             )
@@ -328,7 +330,7 @@ public struct SkelpoMetric: MetricsFactory {
 
                 self.client.send(
                     "PATCH",
-                    url: self.config.url + "/events/\(event)/lock",
+                    url: self.config.url + "/\(event)/lock",
                     headers: ["Authorization": self.config.key, "Content-Type": "application/json"],
                     complete
                 )
@@ -344,7 +346,7 @@ extension Config {
         let body = Event(metric: metric)
         client.send(
             "POST",
-            url: self.url + "/events",
+            url: self.url,
             headers: ["Content-Type": "application/json", "Authorization": self.key],
             body: body,
             complete
