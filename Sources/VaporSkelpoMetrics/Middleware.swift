@@ -10,6 +10,18 @@ import Vapor
 ///
 ///     services.register(SkelpoMetricsMiddleware.self)
 public final class SkelpoMetricsMiddleware: Middleware, ServiceType {
+    static let jsonEncoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        if #available(OSX 10.12, *) {
+            encoder.dateEncodingStrategy = .iso8601
+        } else {
+            encoder.dateEncodingStrategy = .custom { date, _encoder in
+                var container = _encoder.singleValueContainer()
+                try container.encode(date.timeIntervalSince1970.description)
+            }
+        }
+        return encoder
+    }()
 
     /// See `ServiceType.makeService(for:)`.
     public static func makeService(for container: Container) throws -> SkelpoMetricsMiddleware {
@@ -27,7 +39,7 @@ public final class SkelpoMetricsMiddleware: Middleware, ServiceType {
     private let client: Client
 
     private init(encoder: DataEncoder?, config: SkelpoMetrics.Config, logger: Logger, client: Client) {
-        self.encoder = encoder ?? JSONEncoder()
+        self.encoder = encoder ?? SkelpoMetricsMiddleware.jsonEncoder
         self.config = config
         self.logger = logger
         self.client = client
