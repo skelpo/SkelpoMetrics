@@ -53,7 +53,9 @@ public final class SkelpoMetricsMiddleware: Middleware, ServiceType {
         return try next.respond(to: request).flatMap { response in
             event.attributes["status"] = response.http.status.code.description
             event.attributes["endpoint"] = request.http.urlString
-            event.metric = .timer(durations: [Int64(Date().timeIntervalSince1970 - event.date.timeIntervalSince1970)])
+
+            let duration = (Date().timeIntervalSince1970 - event.date.timeIntervalSince1970) * 1_000_000_000
+            event.metric = .timer(durations: [Int64(duration)])
 
             let body: Data
             do { body = try self.encoder.encode(event) }
