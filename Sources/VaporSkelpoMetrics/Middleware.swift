@@ -89,10 +89,9 @@ public final class SkelpoMetricsMiddleware: Middleware, ServiceType {
 
 extension EventLoopFuture {
     func whenComplete(_ callback: @escaping (Result<T, Swift.Error>) -> ()) {
-        self.do {
-            callback(.success($0))
-        }.catch {
-            callback(.failure($0))
-        }.whenComplete { }
+        let success = { callback(.success($0)) }
+        let failure = { callback(.failure($0)) }
+
+        self.do(success).catch(failure).whenComplete { }
     }
 }
