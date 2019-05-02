@@ -50,7 +50,7 @@ public final class SkelpoMetricsMiddleware: Middleware, ServiceType {
         var event = Event(type: "request")
         event.locked = true
 
-        return try next.respond(to: request).flatMap { response in
+        return try next.respond(to: request).map { response in
             event.attributes["status"] = response.http.status.code.description
             event.attributes["endpoint"] = request.http.urlString
 
@@ -61,7 +61,7 @@ public final class SkelpoMetricsMiddleware: Middleware, ServiceType {
             do { body = try self.encoder.encode(event) }
             catch let error {
                 self.logger.error("Metric event failed to save with error: \(error.localizedDescription)")
-                return request.future(response)
+                return response
             }
 
             let http = HTTPRequest(
@@ -71,17 +71,28 @@ public final class SkelpoMetricsMiddleware: Middleware, ServiceType {
                 body: body
             )
 
-            return self.client.send(Request(http: http, using: request)).map { event in
-                guard (200..<300).contains(event.http.status.code) else {
-                    self.logger.error("Got a \(event.http.status.code) response when creating `Event` model.")
-                    return response
+            self.client.send(Request(http: http, using: request)).whenComplete { result in
+                switch result {
+                case let .failure(error):
+                    self.logger.error("Metric event failed to save with error: \(error.localizedDescription)")
+                case let .success(response):
+                    if !(200..<300).contains(response.http.status.code) {
+                        self.logger.error("Got a \(response.http.status.code) response when creating `Event` model.")
+                    }
                 }
-
-                return response
-            }.catchMap { error in
-                self.logger.error("Metric event failed to save with error: \(error.localizedDescription)")
-                return response
             }
+
+            return response
         }
+    }
+}
+
+extension EventLoopFuture {
+    func whenComplete(_ callback: @escaping (Result<T, Swift.Error>) -> ()) {
+        self.do {
+            callback(.success($0))
+        }.catch {
+            callback(.failure($0))
+        }.whenComplete { }
     }
 }
