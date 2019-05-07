@@ -71,13 +71,15 @@ public final class SkelpoMetricsMiddleware: Middleware, ServiceType {
                 body: body
             )
 
-            self.client.send(Request(http: http, using: request)).whenComplete { result in
-                switch result {
-                case let .failure(error):
-                    self.logger.error("Metric event failed to save with error: \(error.localizedDescription)")
-                case let .success(response):
-                    if !(200..<300).contains(response.http.status.code) {
-                        self.logger.error("Got a \(response.http.status.code) response when creating `Event` model.")
+            request.eventLoop.scheduleTask(in: .seconds(1)) {
+                self.client.send(Request(http: http, using: request)).whenComplete { result in
+                    switch result {
+                    case let .failure(error):
+                        self.logger.error("Metric event failed to save with error: \(error.localizedDescription)")
+                    case let .success(response):
+                        if !(200..<300).contains(response.http.status.code) {
+                            self.logger.error("Got a \(response.http.status.code) response when creating `Event` model.")
+                        }
                     }
                 }
             }
